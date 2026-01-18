@@ -9,4 +9,4 @@ I hope that it will get a usefull library for further use.
 
 ### Core layer (fsm_core.h/.c)
 
-Core layer designs for realization basic API of event driven FSM.
+Core layer designs for realization basic API of transition driven FSM.
