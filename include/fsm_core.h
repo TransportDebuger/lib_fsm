@@ -28,8 +28,65 @@ extern "C" {
 #include <stddef.h> // size_t
 #include <stdbool.h> // bool
 
+/**
+ * @defgroup core Core API
+ * @brief Fundamental FSM functionality for event-driven state management
+ *
+ * This module provides the minimal, high-performance core of the FSM library.
+ * It includes the basic types, transition engine, and lifecycle management
+ * required to implement a finite state machine without dependencies on extended
+ * features (e.g. model introspection, guards, or actions).
+ *
+ * @note This layer is designed to be embed-friendly: it uses no dynamic allocation
+ *       (except via user-provided malloc), has no internal state, and supports
+ *       real-time systems with deterministic execution.
+ * @note The API is fully compatible with C++ (wraps in `extern "C"`).
+ *
+ * Example usage:
+ * @code
+ * const fsm_transition_t transitions[] = {
+ *     { STATE_A, EV_GO_B, STATE_B, on_a_exit, on_b_enter },
+ *     { STATE_B, EV_GO_A, STATE_A, on_b_exit, on_a_enter }
+ * };
+ *
+ * fsm_t *fsm = fsm_new(transitions, 2, &my_context, STATE_A);
+ * if (fsm) {
+ *     fsm_process_event(fsm, EV_GO_B); // Triggers transition
+ * }
+ * @endcode
+ * 
+ * @{
+ */
+
+/**
+ * @def FSM_EVENT_NONE
+ * @brief Special event identifier indicating no event
+ *
+ * This constant is used to represent the absence of an event in the FSM.
+ * It is commonly used in `fsm_update` to trigger time-based or periodic
+ * transitions without relying on external input.
+ *
+ * @note This value must not conflict with valid user-defined event identifiers.
+ * @warning Do not use this value as a regular event in transition rules
+ *          unless implementing tick-based or internal update logic.
+ * @sa fsm_update
+ */
 #define FSM_EVENT_NONE (-1)
 
+/**
+ * @def FSM_STATE_NONE
+ * @brief Special state identifier indicating an invalid or uninitialized state
+ *
+ * Used to represent a null or undefined state in the FSM, such as:
+ * - Initial value before initialization,
+ * - Return value for invalid state queries,
+ * - Sentinel value in state lookup operations.
+ *
+ * @note This value must not be used as a valid user-defined state identifier.
+ * @warning Comparing states with `FSM_STATE_NONE` does not guarantee error detection
+ *          if the FSM logic allows it as a legitimate state; use with care.
+ * @sa fsm_get_state
+ */
 #define FSM_STATE_NONE (-1)
 
 /**
@@ -407,6 +464,8 @@ fsm_context_t fsm_get_context(fsm_t *fsm);
  * @endcode
  */
 bool fsm_set_context(fsm_t *fsm, fsm_context_t ctx);
+
+/** @} */ // end of Core API
 
 #ifdef __cplusplus
 }
