@@ -1,25 +1,51 @@
 /**
  * @file fsm_core.c
- * @brief FSM Core API realisation
- * 
+ * @brief Implementation of the FSM Core API
+ *
+ * This file contains the complete realization of the finite state machine engine,
+ * including:
+ * - FSM instance lifecycle management (`fsm_new`, `fsm_free`)
+ * - Event processing with recursion protection
+ * - State transitions with optional entry/exit callbacks
+ * - Periodic update mechanism via `fsm_update`
+ *
+ * The implementation is designed to be:
+ * - Minimal and embed-friendly (no dynamic allocations beyond user-facing `fsm_new`)
+ * - Reentrant (via `processing` flag)
+ * - Deterministic (first-match transition semantics)
+ *
+ * @note This module does not depend on `fsm_model.h` or any extended metadata,
+ *       ensuring zero overhead when advanced features are not used.
+ *
  * @author Artem Ulyanov (aka s21::provemet)
  * @date 2024-01-16
+ * @version 1.0.0
  */
 
 #include "fsm_core.h"
 
+/**
+ * @internal
+ * @struct fsm
+ * @brief Finite State Machine (FSM) instance structure.
+ *
+ * This structure represents a single instance of a finite state machine.
+ * It holds the transition table, current state, initial state, user context,
+ * and execution state. The FSM processes events by matching them against
+ * transitions from the current state.
+ */
 struct fsm {
-  const fsm_transition_t *transitions;
-  size_t count;
-  fsm_state_t initial;
-  fsm_state_t current;
-  fsm_context_t ctx;
-  bool processing;
+    const fsm_transition_t *transitions; /**< Pointer to the array of transitions defining the FSM's behavior. */
+    size_t count;                        /**< Number of transitions in the array. */
+    fsm_state_t initial;                 /**< Initial state of the FSM, set at initialization. */
+    fsm_state_t current;                 /**< Current (active) state of the FSM during execution. */
+    fsm_context_t ctx;                   /**< User-defined context passed to action functions during transitions. */
+    bool processing;                     /**< Flag indicating whether the FSM is currently processing an event (used to detect reentrancy). */
 };
 
 fsm_t *fsm_new(const fsm_transition_t *transitions, size_t transitions_count, fsm_context_t ctx, fsm_state_t start) {
   // input params checking
-  if (transitions == NULL || transitions_count == 0 || start == FSM_EVENT_NONE) { return NULL; }
+  if (transitions == NULL || transitions_count == 0 || start == FSM_STATE_NONE) { return NULL; }
   bool state_presents = false;
   for (size_t i = 0; i < transitions_count; i++) {
     if (transitions[i].src == start) { 
@@ -73,19 +99,7 @@ bool fsm_process_event(fsm_t *fsm, fsm_event_t event) {
 }
 
 void fsm_update(fsm_t *fsm) {
-  if (fsm == NULL || fsm->processing) { return; }
-
-  fsm->processing = true;
-  for (size_t i = 0; i < fsm->count; ++i) {
-    const fsm_transition_t *t = &fsm->transitions[i];
-    if (t->src == fsm->current && t->event == FSM_EVENT_NONE) {
-      if (t->on_exit) t->on_exit(fsm->ctx);
-      fsm->current = t->dst;
-      if (t->on_enter) t->on_enter(fsm->ctx);
-      break;
-    }
-  }
-  fsm->processing = false;
+  fsm_process_event(fsm, FSM_EVENT_NONE);
 }
 
 fsm_state_t fsm_get_state(const fsm_t *fsm) {

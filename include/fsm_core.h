@@ -325,28 +325,34 @@ void fsm_reset(fsm_t *fsm);
 bool fsm_process_event(fsm_t *fsm, fsm_event_t event);
 
 /**
- * @brief Perform a periodic update tick on the FSM
+ * @brief Perform a periodic update tick on the FSM.
  *
- * Advances the internal logic of the FSM by processing a time-driven or tick-based event.
- * This method is typically called on every loop iteration or timer tick to support
- * time-based transitions or state-specific update logic (e.g., animations, timeouts).
+ * Advances the internal logic of the finite state machine by processing a time-driven or tick-based event.
+ * This function is typically called in a loop or from a timer interrupt to support:
+ * - Time-based transitions (e.g., timeouts).
+ * - State-specific update logic (e.g., animations, countdowns).
  *
- * @param fsm  Pointer to the FSM instance (no effect if NULL)
+ * The update is implemented as an internal event with `FSM_EVENT_NONE`, which allows transitions
+ * to be triggered based on elapsed time or other conditions evaluated during the update.
  *
- * @pre `fsm` must point to a valid, initialized FSM instance
+ * @param[in,out] fsm  Pointer to the FSM instance. No action is taken if NULL.
  *
- * @note This function may internally trigger a transition in response to `FSM_EVENT_NONE`,
- *       allowing time-based or condition-driven logic without external events.
- * @note Designed for use in real-time loops; should return quickly.
+ * @pre The `fsm` pointer must point to a valid, initialized FSM instance.
+ *
+ * @post If a transition is defined for the current state with `FSM_EVENT_NONE`, the FSM
+ *       will change state and execute associated `on_exit` and `on_enter` actions.
+ *
+ * @note Designed for real-time systems: should return quickly and not block.
  * @note Reentrant: returns immediately if another event or update is already being processed.
  * @note Safe to call continuously, even if no transitions are defined for `FSM_EVENT_NONE`.
+ * @note Thread-unsafe: external synchronization required in multithreaded environments.
  *
  * @warning Do not call `fsm_update` from within `on_exit` or `on_enter` callbacks.
- *          While recursion is protected, such calls will be ignored, potentially leading
+ *          While recursion is prevented, such calls will be silently ignored, potentially leading
  *          to missed updates or unexpected behavior.
- * @warning The transition table must remain valid during execution.
+ * @warning The transition table (`fsm->transitions`) must remain valid and unchanged during execution.
  *
- * @sa fsm_process_event, FSM_EVENT_NONE
+ * @sa fsm_process_event(), FSM_EVENT_NONE
  *
  * Example usage:
  * @code
