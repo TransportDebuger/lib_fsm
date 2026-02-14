@@ -17,6 +17,9 @@
  *
  * @note This module does not depend on `fsm_model.h` or any extended metadata,
  *       ensuring zero overhead when advanced features are not used.
+ * 
+ * @warning All functions are thread-unsafe. External synchronization is required
+ *          in multithreaded environments.
  *
  * @author Artem Ulyanov (aka s21::provemet)
  * @date 2024-01-16
@@ -30,14 +33,24 @@
  * @struct fsm
  * @brief Finite State Machine (FSM) instance structure.
  *
- * This structure represents a single instance of a finite state machine.
- * It holds the transition table, current state, initial state, user context,
- * and execution state. The FSM processes events by matching them against
- * transitions from the current state.
+ * Represents a runtime instance of a finite state machine. Each FSM is defined
+ * by a transition table and maintains its own state and context, enabling
+ * multiple independent FSMs to coexist.
+ *
+ * The FSM processes events by scanning the transition array for the first entry
+ * that matches both the current state and the incoming event, then performs
+ * the associated action and state change.
+ *
+ * @note This implementation uses a flat transition table with linear search,
+ *       making it suitable for small to medium-sized FSMs (typically < 50 transitions).
+ *       Time complexity of event processing is O(n), where n is the number of transitions.
+ *
+ * @warning The transition table must remain valid and unchanged during FSM operation.
+ *          The FSM does not own or copy the transition data.
  */
 struct fsm {
   const fsm_transition_t *transitions; ///< Pointer to the array of transitions
-                                       ///<   defining the FSM's behavior.
+                                       ///< defining the FSM's behavior.
   size_t count;        ///< Number of transitions in the array.
   fsm_state_t initial; ///< Initial state of the FSM, set at initialization.
   fsm_state_t

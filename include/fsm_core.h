@@ -43,13 +43,13 @@ extern "C" {
  * @note The API is fully compatible with C++ (wraps in `extern "C"`).
  *
  * Example usage:
- * @code
+ * @code{.c}
  * const fsm_transition_t transitions[] = {
  *     { STATE_A, EV_GO_B, STATE_B, on_a_exit, on_b_enter },
  *     { STATE_B, EV_GO_A, STATE_A, on_b_exit, on_a_enter }
  * };
  *
- * fsm_t *fsm = fsm_new(transitions, 2, &my_context, STATE_A);
+ * fsm_t *fsm = fsm_new(transitions, 2, &my_contex+-t, STATE_A);
  * if (fsm) {
  *     fsm_process_event(fsm, EV_GO_B); // Triggers transition
  * }
