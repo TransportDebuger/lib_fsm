@@ -1,0 +1,34 @@
+/**
+ * @fn int s21_fsm_set_transition_context_exact(s21_fsm_t *fsm,
+ *                                              s21_state_id_t src_state_id,
+ *                                              s21_event_id_t trigger,
+ *                                              s21_state_id_t dest_state_id,
+ *                                              s21_fsm_guard_callback_t on_guard,
+ *                                              s21_fsm_effect_callback_t on_effect,
+ *                                              void *transition_ctx)
+ *
+ * @details
+ * Функция находит конкретный переход по полному набору
+ * параметров (исходное состояние @p src_state_id, событие
+ * @p trigger, целевое состояние @p dest_state_id и указатели
+ * callback‑функций @p on_guard/@p on_effect) и устанавливает
+ * для него новый пользовательский контекст @p transition_ctx.
+ *
+ * Для поиска используется s21_fsm_find_state() и
+ * s21_fsm_find_transition_index(); при успешном поиске значение
+ * `ctx` соответствующей записи в массиве переходов
+ * присваивается @p transition_ctx.
+ *
+ * Если @p fsm равен NULL, возвращается S21_FSM_NULL_POINTER.
+ * При отрицательных @p src_state_id или @p dest_state_id
+ * возвращается S21_FSM_STATE_INCORRECT_ID; при отрицательном
+ * @p trigger — S21_FSM_EVENT_INCORRECT_ID.
+ * Если исходное состояние не найдено, возвращается
+ * S21_FSM_STATE_NOT_FOUND, а если переход не найден —
+ * S21_FSM_TRANSITION_NOT_FOUND.
+ *
+ * @note Контекст перехода может быть NULL и не
+ *       интерпретируется библиотекой; ответственность за
+ *       корректность и время жизни указателя лежит на
+ *       прикладном коде.
+ */

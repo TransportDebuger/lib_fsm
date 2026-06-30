@@ -1,0 +1,33 @@
+/**
+ * @fn int s21_fsm_get_transition_context_exact(s21_fsm_t *fsm,
+ *                                              s21_state_id_t src_state_id,
+ *                                              s21_event_id_t trigger,
+ *                                              s21_state_id_t dest_state_id,
+ *                                              s21_fsm_guard_callback_t on_guard,
+ *                                              s21_fsm_effect_callback_t on_effect,
+ *                                              void **out_transition_ctx)
+ *
+ * @details
+ * Функция извлекает пользовательский контекст для перехода,
+ * однозначно определяемого комбинацией параметров:
+ * исходное состояние @p src_state_id, событие @p trigger,
+ * целевое состояние @p dest_state_id и указатели
+ * callback‑функций @p on_guard/@p on_effect.
+ * Внутренне выполняется поиск исходного состояния
+ * (s21_fsm_find_state()) и индекса перехода
+ * (s21_fsm_find_transition_index()); при успешном поиске
+ * значение поля `ctx` соответствующего перехода записывается
+ * в @p out_transition_ctx.
+ *
+ * Если @p fsm равен NULL или @p out_transition_ctx равен NULL,
+ * функция возвращает S21_FSM_NULL_POINTER.
+ * При отрицательных @p src_state_id или @p dest_state_id
+ * возвращается S21_FSM_STATE_INCORRECT_ID, при отрицательном
+ * @p trigger — S21_FSM_EVENT_INCORRECT_ID.
+ * В случае отсутствия исходного состояния возвращается
+ * S21_FSM_STATE_NOT_FOUND, а при отсутствии перехода —
+ * S21_FSM_TRANSITION_NOT_FOUND.
+ *
+ * @note Возвращаемый контекст может быть NULL — это допустимое
+ *       значение, не трактуемое как ошибка.
+ */
