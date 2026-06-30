@@ -1,0 +1,200 @@
+/*!
+@page fsm_transitions FSM transitions
+
+# Переходы в s21 FSM Library
+
+Переходы в s21 FSM Library описывают возможные изменения текущего состояния автомата
+в ответ на поступающие события. Они реализуют классическую семантику UML‑state machine:
+триггеры (events), guard‑условия и effect‑действия.
+
+Каждый переход принадлежит конкретному состоянию-источнику и задаётся набором параметров:
+
+- идентификатором события (`trigger`), который инициирует переход;
+- идентификатором состояния-назначения (`dest_state_id` в API, `target_state_id` во внутренней структуре);
+- опциональным guard‑callback`ом (`on_guard`), определяющим, допустим ли переход;
+- опциональным effect‑callback`ом (`on_effect`), выполняемым при успешном переходе;
+- контекстом перехода (`transition_ctx`)
+
+Переходы не имеют собственных публичных идентификаторов и управляются через функции
+API, оперирующие комбинацией `(src_state_id, trigger, dest_state_id, on_guard, on_effect)`.
+
+## Роль переходов в жизненном цикле FSM
+
+После настройки состояний модель переходов определяет возможную динамику FSM. При вызове
+`s21_fsm_dispatch(fsm, event)` библиотека:
+
+1. Находит текущее состояние по `current_state`.
+2. Просматривает его исходящие переходы в порядке регистрации.
+3. Для каждого перехода с совпадающим `trigger`:
+   - если `on_guard == NULL`, переход считается разрешён;
+   - иначе вызывается `on_guard(transition_ctx)`, и переход разрешён только при `true`.
+4. При первом подходящем переходе выполняется последовательность:
+   - `on_exit(current_state_ctx)` (если задан),
+   - `on_effect(transition_ctx)` (если задан),
+   - `current_state = target_state_id`,
+   - `on_entry(new_state_ctx)` (если задан).
+
+Если ни один переход с данным `event` не подходит (нет совпадающего `trigger` или guard
+всегда возвращает `false`), возвращается `S21_FSM_NO_TRANSITION`, и состояние не изменяется.
+
+## Описание внутренних полей перехода
+
+Внутренняя структура `s21_fsm_transition` не экспортируется в публичный API, но определяет
+основные элементы каждого перехода:
+
+- `trigger` — идентификатор события (`s21_event_id_t`, ≥ 0), на которое реагирует переход.
+- `target_state_id` — идентификатор состояния, в которое переходит FSM при выполнении перехода.
+- `on_guard` — callback guard‑условия. Если `NULL`, guard считается всегда истинным. Если задан,
+  то переход выполняется только при `on_guard(ctx) == true`.
+- `on_effect` — callback effect‑действия, вызываемый после выхода из исходного состояния и перед
+  входом в новое. Может быть `NULL`, если дополнительное действие не требуется.
+- `ctx` — контекст перехода (`transition_ctx`), произвольный указатель, передаваемый в `on_guard`
+  и `on_effect`. Может быть `NULL`. Тип и структура контекста определяются пользователем.
+
+## Регистрация и управление переходами
+
+Работа с переходами осуществляется через функции публичного API:
+
+### Регистрация перехода
+
+```c
+int s21_fsm_register_transition(
+    s21_fsm_t *fsm,
+    s21_state_id_t src_state_id,
+    s21_state_id_t dest_state_id,
+    s21_event_id_t trigger,
+    s21_fsm_guard_callback_t on_guard,
+    s21_fsm_effect_callback_t on_effect,
+    void *transition_ctx
+);
+```
+
+- регистрирует новый переход из `src_state_id` в `dest_state_id` при событии `trigger`.
+- `on_guard`, `on_effect`, `transition_ctx` могут быть `NULL`.
+- дубликаты переходов не запрещаются; точечные операции работают с первым переходом, совпавшим по полному набору параметров.
+- оба состояния должны быть зарегистрированы; идентификаторы и `trigger` должны быть ≥ 0.
+- при ошибке возвращаются соответствующие коды:
+  - `S21_FSM_NULL_POINTER`, `S21_FSM_STATE_INCORRECT_ID`,
+  - `S21_FSM_EVENT_INCORRECT_ID`, `S21_FSM_STATE_NOT_FOUND`,
+  - `S21_FSM_ALLOCATION_ERROR`.
+
+### Удаление конкретного перехода
+
+```c
+int s21_fsm_unregister_transition_exact(
+    s21_fsm_t *fsm,
+    s21_state_id_t src_state_id,
+    s21_event_id_t trigger,
+    s21_state_id_t dest_state_id,
+    s21_fsm_guard_callback_t on_guard,
+    s21_fsm_effect_callback_t on_effect
+);
+```
+
+- удаляет переход, идентифицируемый комбинацией `(src_state_id, trigger, dest_state_id, on_guard, on_effect)`.
+- если переход не найден, возвращает `S21_FSM_TRANSITION_NOT_FOUND`.
+
+### Очистка переходов по триггеру
+
+```c
+int s21_fsm_clear_transitions_by_trigger(
+    s21_fsm_t *fsm,
+    s21_state_id_t src_state_id,
+    s21_event_id_t trigger
+);
+```
+
+- удаляет все переходы из `src_state_id` с указанным `trigger`.
+- если переходов с таким `trigger` нет, возвращает `S21_FSM_OK`.
+
+### Очистка всех переходов из состояния
+
+```c
+int s21_fsm_clear_transitions_from_state(
+    s21_fsm_t *fsm,
+    s21_state_id_t src_state_id
+);
+```
+
+- удаляет все переходы из заданного состояния-источника.
+
+## Контекст перехода
+
+Контекст перехода можно изменять и читать отдельно от остальных параметров:
+
+```c
+int s21_fsm_set_transition_context_exact(
+    s21_fsm_t *fsm,
+    s21_state_id_t src_state_id,
+    s21_event_id_t trigger,
+    s21_state_id_t dest_state_id,
+    s21_fsm_guard_callback_t on_guard,
+    s21_fsm_effect_callback_t on_effect,
+    void *transition_ctx
+);
+
+int s21_fsm_get_transition_context_exact(
+    s21_fsm_t *fsm,
+    s21_state_id_t src_state_id,
+    s21_event_id_t trigger,
+    s21_state_id_t dest_state_id,
+    s21_fsm_guard_callback_t on_guard,
+    s21_fsm_effect_callback_t on_effect,
+    void **out_transition_ctx
+);
+```
+
+- при успехе `set` устанавливает `ctx` для найденного перехода (может быть `NULL`).
+- `get` возвращает текущий `ctx` в `*out_transition_ctx` (может быть `NULL`).
+- обе функции используют те же правила поиска и коды ошибок, что и `s21_fsm_unregister_transition_exact`; `get` дополнительно возвращает `S21_FSM_NULL_POINTER`, если `out_transition_ctx == NULL`.
+
+## Примеры использования
+
+Простой пример настройки переходов:
+
+```c
+enum {
+    STATE_IDLE,
+    STATE_RUN,
+    STATE_ERROR
+};
+
+enum {
+    EVENT_START,
+    EVENT_STOP,
+    EVENT_FAIL
+};
+
+void on_effect_start(void *ctx);
+void on_effect_stop(void *ctx);
+bool on_guard_fail(void *ctx);
+void on_effect_fail(void *ctx);
+
+void setup_transitions(s21_fsm_t *fsm)
+{
+    s21_fsm_register_transition(
+        fsm, STATE_IDLE, STATE_RUN, EVENT_START,
+        NULL,                /* guard: всегда разрешён */
+        on_effect_start,
+        NULL                 /* контекст перехода */
+    );
+
+    s21_fsm_register_transition(
+        fsm, STATE_RUN, STATE_IDLE, EVENT_STOP,
+        NULL,
+        on_effect_stop,
+        NULL
+    );
+
+    s21_fsm_register_transition(
+        fsm, STATE_RUN, STATE_ERROR, EVENT_FAIL,
+        on_guard_fail,       /* guard: проверка условия ошибки */
+        on_effect_fail,
+        NULL
+    );
+}
+```
+
+Этот пример иллюстрирует типичную схему: для каждого события в конкретном состоянии есть один или несколько переходов, которые выбираются по `trigger` и проверяются guard‑условиями.
+
+*/

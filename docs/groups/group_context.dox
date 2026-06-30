@@ -1,0 +1,92 @@
+/**
+ * @defgroup FSM_context Контексты автомата
+ * @brief Работа с глобальным, локальным и переходным контекстами FSM.
+ *
+ * Группа объединяет элементы API, отвечающие за хранение и передачу
+ * пользовательских данных в автомат: глобальный контекст FSM, контекст
+ * состояния и контекст перехода.
+ *
+ * Контексты позволяют отделить структуру автомата (состояния, переходы,
+ * события) от данных, с которыми он работает. Библиотека хранит и
+ * прозрачно передаёт указатели контекстов в callbacks, но не управляет
+ * их памятью.
+ */
+
+/**
+ * @defgroup FSM_context_machine Глобальный контекст автомата
+ * @ingroup FSM_context
+ * @brief Пользовательский контекст, связанный со всем FSM целиком.
+ *
+ * Глобальный контекст (`user_ctx`) задаётся при создании автомата и
+ * может быть изменён в любой момент. Он доступен из любой части
+ * прикладного кода через `s21_fsm_get_context`.
+ *
+ * Библиотека не интерпретирует глобальный контекст и не освобождает
+ * память по этому указателю; ответственность за его жизненный цикл
+ * лежит на пользователе.
+ *
+ * @{
+ * @fn int s21_fsm_set_context(s21_fsm_t *fsm, void *user_ctx)
+ * @fn void *s21_fsm_get_context(s21_fsm_t *fsm)
+ * @}
+ */
+
+/**
+ * @defgroup FSM_context_state Контекст состояния
+ * @ingroup FSM_context
+ * @brief Пользовательские данные, связанные с конкретным состоянием.
+ *
+ * Контекст состояния (`state_ctx`) ассоциируется с отдельным
+ * идентификатором состояния и передаётся во все его callbacks:
+ * `on_entry`, `on_do`, `on_exit`.
+ *
+ * Контекст можно задать при регистрации состояния или обновить
+ * позднее через `s21_fsm_set_state_context`; его текущее значение
+ * можно получить с помощью `s21_fsm_get_state_context`.
+ *
+ * @{
+ * @fn int s21_fsm_set_state_context(
+ *        s21_fsm_t *fsm,
+ *        s21_state_id_t state_id,
+ *        void *state_ctx)
+ *
+ * @fn int s21_fsm_get_state_context(
+ *        s21_fsm_t *fsm,
+ *        s21_state_id_t state_id,
+ *        void **out_state_ctx)
+ * @}
+ */
+
+/**
+ * @defgroup FSM_context_transition Контекст перехода
+ * @ingroup FSM_context
+ * @brief Пользовательские данные, связанные с конкретным переходом.
+ *
+ * Контекст перехода (`transition_ctx`) привязан к одному конкретному
+ * переходу, идентифицируемому комбинацией: исходное состояние, событие,
+ * целевое состояние, guard‑callback и effect‑callback.
+ *
+ * Этот контекст передаётся в функции `on_guard` и `on_effect` при
+ * обработке перехода. Библиотека хранит и возвращает его по запросу,
+ * но не отвечает за его выделение и освобождение.
+ *
+ * @{
+ * @fn int s21_fsm_set_transition_context_exact(
+ *        s21_fsm_t *fsm,
+ *        s21_state_id_t src_state_id,
+ *        s21_event_id_t trigger,
+ *        s21_state_id_t dest_state_id,
+ *        s21_fsm_guard_callback_t on_guard,
+ *        s21_fsm_effect_callback_t on_effect,
+ *        void *transition_ctx)
+ *
+ * @fn int s21_fsm_get_transition_context_exact(
+ *        s21_fsm_t *fsm,
+ *        s21_state_id_t src_state_id,
+ *        s21_event_id_t trigger,
+ *        s21_state_id_t dest_state_id,
+ *        s21_fsm_guard_callback_t on_guard,
+ *        s21_fsm_effect_callback_t on_effect,
+ *        void **out_transition_ctx)
+ * @}
+ */

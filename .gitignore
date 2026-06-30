@@ -53,3 +53,25 @@ dkms.conf
 
 # debug information files
 *.dwo
+
+# Build directories
+build/
+cmake-build-*/
+*.cmake
+Makefile.cache
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Test artifacts
+*.gcov
+*.info
+coverage/
+
+# Binary output directories
+bin/
+dist/

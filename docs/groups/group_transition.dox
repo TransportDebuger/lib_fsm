@@ -1,0 +1,111 @@
+/**
+ * @defgroup FSM_transition Переход автомата
+ * @brief Описание и управление переходами между состояниями FSM.
+ *
+ * Группа объединяет элементы API, которые задают связи между состояниями
+ * автомата: исходное и целевое состояние, событие‑триггер, guard‑условие,
+ * effect‑действие и контекст перехода.
+ *
+ * Через функции этой группы пользователь описывает «логику» смены
+ * состояний: при каких событиях и при каких условиях FSM будет
+ * перемещаться из одного состояния в другое и какие действия при этом
+ * выполняются.
+ */
+
+/**
+ * @defgroup FSM_transition_types Типы, описывающие переход
+ * @ingroup FSM_transition
+ * @brief Базовые типы для триггеров, условий и действий перехода.
+ *
+ * Включает идентификаторы состояний и событий, а также callback‑типы
+ * для guard‑условий и effect‑действий перехода.
+ *
+ * Guard‑callback (`s21_fsm_guard_callback_t`) определяет, разрешён ли
+ * переход при данном контексте; effect‑callback (`s21_fsm_effect_callback_t`)
+ * описывает побочное действие, выполняемое при успешном переходе.
+ *
+ * @{
+ * @typedef s21_state_id_t
+ * @typedef s21_event_id_t
+ * @typedef s21_fsm_guard_callback_t
+ * @typedef s21_fsm_effect_callback_t
+ * @}
+ */
+
+/**
+ * @defgroup FSM_transition_ops Операции с переходами
+ * @ingroup FSM_transition
+ * @brief Регистрация, удаление и массовое управление переходами.
+ *
+ * Эти функции позволяют описать набор возможных переходов в FSM:
+ * добавить новый переход между состояниями, удалить конкретный
+ * переход или очистить сразу несколько переходов из состояния или
+ * по событию.
+ *
+ * При регистрации перехода пользователь указывает исходное состояние,
+ * целевое состояние, событие‑триггер, guard‑условие и effect‑действие,
+ * а также контекст перехода.
+ *
+ * @{
+ * @fn int s21_fsm_register_transition(
+ *        s21_fsm_t *fsm,
+ *        s21_state_id_t src_state_id,
+ *        s21_state_id_t dest_state_id,
+ *        s21_event_id_t trigger,
+ *        s21_fsm_guard_callback_t on_guard,
+ *        s21_fsm_effect_callback_t on_effect,
+ *        void *transition_ctx)
+ *
+ * @fn int s21_fsm_unregister_transition_exact(
+ *        s21_fsm_t *fsm,
+ *        s21_state_id_t src_state_id,
+ *        s21_event_id_t trigger,
+ *        s21_state_id_t dest_state_id,
+ *        s21_fsm_guard_callback_t on_guard,
+ *        s21_fsm_effect_callback_t on_effect)
+ *
+ * @fn int s21_fsm_clear_transitions_by_trigger(
+ *        s21_fsm_t *fsm,
+ *        s21_state_id_t src_state_id,
+ *        s21_event_id_t trigger)
+ *
+ * @fn int s21_fsm_clear_transitions_from_state(
+ *        s21_fsm_t *fsm,
+ *        s21_state_id_t src_state_id)
+ * @}
+ */
+
+/**
+ * @defgroup FSM_transition_context Контекст перехода и его использование
+ * @ingroup FSM_transition
+ * @brief Работа с контекстом перехода и его связывание с callbacks.
+ *
+ * В этой подгруппе собраны функции, позволяющие назначать и извлекать
+ * контекст для конкретного перехода, идентифицируемого набором
+ * параметров (источник, событие, целевое состояние, guard, effect).
+ *
+ * Контекст перехода (`transition_ctx`) — произвольный указатель, который
+ * передаётся во все связанные с переходом callbacks (`on_guard`, `on_effect`).
+ * Библиотека не управляет памятью по этому указателю: ответственность за
+ * его жизненный цикл лежит на пользователе.
+ *
+ * @{
+ * @fn int s21_fsm_set_transition_context_exact(
+ *        s21_fsm_t *fsm,
+ *        s21_state_id_t src_state_id,
+ *        s21_event_id_t trigger,
+ *        s21_state_id_t dest_state_id,
+ *        s21_fsm_guard_callback_t on_guard,
+ *        s21_fsm_effect_callback_t on_effect,
+ *        void *transition_ctx)
+ *
+ * @fn int s21_fsm_get_transition_context_exact(
+ *        s21_fsm_t *fsm,
+ *        s21_state_id_t src_state_id,
+ *        s21_event_id_t trigger,
+ *        s21_state_id_t dest_state_id,
+ *        s21_fsm_guard_callback_t on_guard,
+ *        s21_fsm_effect_callback_t on_effect,
+ *        void **out_transition_ctx)
+ * @}
+ */
