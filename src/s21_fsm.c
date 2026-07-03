@@ -928,10 +928,12 @@ int s21_fsm_initialize(s21_fsm_t *fsm) {
     fsm->current_state = fsm->initial_state;
     fsm->initialized = true;
     
+    fsm->in_dispatch = true;
     /* Вызов on_entry начального состояния */
     if (initial_state->on_entry) {
         initial_state->on_entry(initial_state->ctx);
     }
+    fsm->in_dispatch = false;
     
     return S21_FSM_OK;
 }
