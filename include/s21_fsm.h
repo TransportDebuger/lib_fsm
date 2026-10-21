@@ -1,3 +1,10 @@
+/**
+ * @file s21_fsm.h
+ * @brief Публичный интерфейс библиотеки s21 FSM.
+ * @version 1.0.3
+ * @date 2026-10-22
+ */
+
 #ifndef S21_FSM_H
 #define S21_FSM_H
 
@@ -163,6 +170,17 @@ typedef void (*s21_fsm_effect_callback_t)(void *ctx);
  */
 #define S21_FSM_REENTRANT_CALL        (-11)
 
+/**
+ * @brief Превышен максимально допустимый размер массива FSM.
+ *
+ * Возвращается, когда расчёт новой ёмкости массива состояний
+ * или переходов не помещается в size_t. При этом отказе блок
+ * памяти, ёмкость и счётчик объекта не изменяются.
+ *
+ * @since 1.0.3
+ */
+#define S21_FSM_CAPACITY_OVERFLOW     (-12)
+
 /* --- Публичный API --- */
 
 /**
@@ -213,24 +231,26 @@ int s21_fsm_set_context(s21_fsm_t *fsm, void *user_ctx);
  * @return Текущее значение глобального контекста автомата,
  *         либо NULL, если @p fsm равен NULL или контекст не установлен.
  */
-void *s21_fsm_get_context(s21_fsm_t *fsm);
+void *s21_fsm_get_context(const s21_fsm_t *fsm);
 
 /**
  * @brief Регистрирует новое состояние в автомате.
  *
  * @param[in,out] fsm       Указатель на FSM, в которую добавляется состояние.
- * @param[in]     state_id  Идентификатор состояния (должен быть ≥ 0 и уникальным).
+ * @param[in]     state_id  Идентификатор состояния (должен быть >= 0 и уникальным).
  * @param[in]     on_entry  Callback, вызываемый при входе в состояние (может быть NULL).
- * @param[in]     on_do     Callback, вызываемый при обновлении состояния (`s21_fsm_update`) (может быть NULL).
- * @param[in]     on_exit   Callback, вызываемый при выходе из состояния при переходе (может быть NULL).
- * @param[in]     state_ctx Пользовательский контекст состояния, передаваемый во все его callbacks (может быть NULL).
+ * @param[in]     on_do     Callback, вызываемый при обновлении состояния (может быть NULL).
+ * @param[in]     on_exit   Callback, вызываемый при выходе из состояния (может быть NULL).
+ * @param[in]     state_ctx Пользовательский контекст состояния (может быть NULL).
  *
- * @return Код ошибки
- * @retval S21_FSM_OK                 при успешной регистрации состояния,
- * @retval S21_FSM_NULL_POINTER       если @p fsm равен NULL,
- * @retval S21_FSM_STATE_INCORRECT_ID если @p state_id < 0,
- * @retval S21_FSM_STATE_EXISTS       если состояние с таким идентификатором уже зарегистрировано,
+ * @return Код результата операции.
+ * @retval S21_FSM_OK                 при успешной регистрации состояния.
+ * @retval S21_FSM_NULL_POINTER       если fsm равен NULL.
+ * @retval S21_FSM_STATE_INCORRECT_ID если state_id < 0.
+ * @retval S21_FSM_STATE_EXISTS       если состояние с таким идентификатором уже зарегистрировано.
  * @retval S21_FSM_ALLOCATION_ERROR   если не удалось расширить массив состояний.
+ * @retval S21_FSM_CAPACITY_OVERFLOW  если расчет новой емкости превысил предел size_t.
+ * @since 1.0.0
  */
 int s21_fsm_register_state(s21_fsm_t *fsm,
                            s21_state_id_t state_id,
@@ -348,7 +368,7 @@ int s21_fsm_set_state_context(s21_fsm_t *fsm,
  * @retval S21_FSM_STATE_INCORRECT_ID если @p state_id < 0,
  * @retval S21_FSM_STATE_NOT_FOUND    если состояние с идентификатором @p state_id не зарегистрировано.
  */
-int s21_fsm_get_state_context(s21_fsm_t *fsm,
+int s21_fsm_get_state_context(const s21_fsm_t *fsm,
                               s21_state_id_t state_id,
                               void **out_state_ctx);
 
@@ -483,7 +503,7 @@ int s21_fsm_set_transition_context_exact(s21_fsm_t *fsm,
  * @retval S21_FSM_STATE_NOT_FOUND      если исходное состояние не найдено,
  * @retval S21_FSM_TRANSITION_NOT_FOUND если переход с указанными параметрами отсутствует.
  */
-int s21_fsm_get_transition_context_exact(s21_fsm_t *fsm,
+int s21_fsm_get_transition_context_exact(const s21_fsm_t *fsm,
                                          s21_state_id_t src_state_id,
                                          s21_event_id_t trigger,
                                          s21_state_id_t dest_state_id,

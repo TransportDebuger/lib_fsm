@@ -2,8 +2,8 @@
  * @file s21_fsm.c
  * @brief Внутренняя реализация библиотеки конечного автомата (FSM).
  * @internal
- * @author provemet (s21)
- * @date 27-06-2026
+ * @version 1.0.3
+ * @date 2026-10-24
  */
 
 #include "s21_fsm.h"
@@ -80,6 +80,24 @@ static void *s21_fsm_test_realloc(void *ptr, size_t size) {
  * Определяет, на сколько элементов увеличивается capacity при realloc.
  */
 #define S21_FSM_DEFAULT_TRANSITION_ALLOC_STEP (4)
+
+/**
+ * @internal
+ * @brief Минимальный шаг увеличения ёмкости при fallback-аллокации.
+ * Используется, если геометрический рост (x1.5) не удался из-за нехватки 
+ * памяти или фрагментации кучи. Позволяет сохранить работоспособность 
+ * ценой временной деградации производительности.
+ */
+#define S21_FSM_FALLBACK_STATE_STEP      (4)
+
+/**
+ * @internal
+ * @brief Минимальный шаг увеличения ёмкости при fallback-аллокации.
+ * Используется, если геометрический рост (x1.5) не удался из-за нехватки 
+ * памяти или фрагментации кучи. Позволяет сохранить работоспособность 
+ * ценой временной деградации производительности.
+ */
+#define S21_FSM_FALLBACK_TRANSITION_STEP (4)
 
 /**
  * @internal
@@ -307,16 +325,53 @@ static int s21_fsm_grow_states(s21_fsm_t *fsm) {
     if (!fsm) {
         return S21_FSM_NULL_POINTER;
     }
-    
-    size_t new_capacity = fsm->state_capacity + fsm->state_alloc_step;
-    struct s21_fsm_state *new_states = realloc(fsm->states, new_capacity * sizeof(struct s21_fsm_state));
+
+    size_t target_capacity;
+    if (fsm->state_capacity == 0) {
+        target_capacity = S21_FSM_DEFAULT_STATE_CAPACITY;
+        if (target_capacity == 0) {
+            target_capacity = S21_FSM_FALLBACK_STATE_STEP; // Если дефолт 0, сразу берем fallback
+        }
+    } else {
+        // Геометрический рост (x1.5)
+        size_t half = fsm->state_capacity / 2;
+        target_capacity = fsm->state_capacity + (half ? half : 1);
+    }
+
+    struct s21_fsm_state *new_states = NULL;
+    size_t final_capacity = target_capacity;
+
+    /* 
+     * Шаг 1: Пытаемся применить геометрический рост, 
+     * если он не вызывает переполнение size_t (CERT MEM04-C).
+     */
+    if (target_capacity <= SIZE_MAX / sizeof(struct s21_fsm_state)) {
+        new_states = realloc(fsm->states, target_capacity * sizeof(struct s21_fsm_state));
+    }
+
+    /* 
+     * Шаг 2: Если геометрический рост не удался (OOM или переполнение), 
+     * пробуем fallback на минимальный линейный шаг.
+     */
     if (!new_states) {
+        final_capacity = fsm->state_capacity + S21_FSM_FALLBACK_STATE_STEP;
+        
+        if (final_capacity <= SIZE_MAX / sizeof(struct s21_fsm_state)) {
+            new_states = realloc(fsm->states, final_capacity * sizeof(struct s21_fsm_state));
+        }
+    }
+
+    /* Шаг 3: Финальная обработка ошибок */
+    if (!new_states) {
+        /* Если даже fallback не сработал, проверяем причину */
+        if (final_capacity > SIZE_MAX / sizeof(struct s21_fsm_state)) {
+            return S21_FSM_CAPACITY_OVERFLOW;
+        }
         return S21_FSM_ALLOCATION_ERROR;
     }
-    
+
     fsm->states = new_states;
-    fsm->state_capacity = new_capacity;
-    
+    fsm->state_capacity = final_capacity;
     return S21_FSM_OK;
 }
 
@@ -334,17 +389,41 @@ static int s21_fsm_grow_transitions(struct s21_fsm_state *state) {
     if (!state) {
         return S21_FSM_NULL_POINTER;
     }
-    
-    size_t new_capacity = state->transition_capacity + state->transition_alloc_step;
-    struct s21_fsm_transition *new_transitions = realloc(state->transitions,
-                                                          new_capacity * sizeof(struct s21_fsm_transition));
+
+    size_t target_capacity;
+    if (state->transition_capacity == 0) {
+        target_capacity = S21_FSM_DEFAULT_TRANSITION_CAPACITY;
+        if (target_capacity == 0) {
+            target_capacity = S21_FSM_FALLBACK_TRANSITION_STEP; // Если дефолт 0, сразу берем fallback
+        }
+    } else {
+        size_t half = state->transition_capacity / 2;
+        target_capacity = state->transition_capacity + (half ? half : 1);
+    }
+
+    struct s21_fsm_transition *new_transitions = NULL;
+    size_t final_capacity = target_capacity;
+
+    if (target_capacity <= SIZE_MAX / sizeof(struct s21_fsm_transition)) {
+        new_transitions = realloc(state->transitions, target_capacity * sizeof(struct s21_fsm_transition));
+    }
+
     if (!new_transitions) {
+        final_capacity = state->transition_capacity + S21_FSM_FALLBACK_TRANSITION_STEP;
+        if (final_capacity <= SIZE_MAX / sizeof(struct s21_fsm_transition)) {
+            new_transitions = realloc(state->transitions, final_capacity * sizeof(struct s21_fsm_transition));
+        }
+    }
+
+    if (!new_transitions) {
+        if (final_capacity > SIZE_MAX / sizeof(struct s21_fsm_transition)) {
+            return S21_FSM_CAPACITY_OVERFLOW;
+        }
         return S21_FSM_ALLOCATION_ERROR;
     }
-    
+
     state->transitions = new_transitions;
-    state->transition_capacity = new_capacity;
-    
+    state->transition_capacity = final_capacity;
     return S21_FSM_OK;
 }
 
@@ -403,7 +482,7 @@ int s21_fsm_set_context(s21_fsm_t *fsm, void *user_ctx) {
     return S21_FSM_OK;
 }
 
-void *s21_fsm_get_context(s21_fsm_t *fsm) {
+void *s21_fsm_get_context(const s21_fsm_t *fsm) {
     if (!fsm) {
         return NULL;
     }
@@ -570,7 +649,7 @@ int s21_fsm_set_state_context(s21_fsm_t *fsm,
     return S21_FSM_OK;
 }
 
-int s21_fsm_get_state_context(s21_fsm_t *fsm,
+int s21_fsm_get_state_context(const s21_fsm_t *fsm,
                               s21_state_id_t state_id,
                               void **out_state_ctx) {
     if (!fsm || !out_state_ctx) {
@@ -767,7 +846,7 @@ int s21_fsm_set_transition_context_exact(s21_fsm_t *fsm,
     return S21_FSM_OK;
 }
 
-int s21_fsm_get_transition_context_exact(s21_fsm_t *fsm,
+int s21_fsm_get_transition_context_exact(const s21_fsm_t *fsm,
                                          s21_state_id_t src_state_id,
                                          s21_event_id_t trigger,
                                          s21_state_id_t dest_state_id,
@@ -962,13 +1041,14 @@ int s21_fsm_reset(s21_fsm_t *fsm) {
     
     fsm->current_state = fsm->initial_state;
     fsm->initialized = true;
-    fsm->in_dispatch = false;
     fsm->in_update = false;
 
     /* Вызов on_entry начального состояния */
+    fsm->in_dispatch = true;
     if (initial_state->on_entry) {
         initial_state->on_entry(initial_state->ctx);
     }
+    fsm->in_dispatch = false;
     
     return S21_FSM_OK;
 }
