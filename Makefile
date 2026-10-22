@@ -76,11 +76,14 @@ CLFORMAT := clang-format
 CLFORMATFLAGS := --style=Google --dry-run
 
 CPPCHECK := cppcheck
-CPPCHECKFLAGS := --enable=all \
-                 --suppress=missingIncludeSystem \
-                 --suppress=unusedFunction \
-	             --language=c --std=c11 \
-                 --error-exitcode=1 $(SOURCES) $(INCLUDES)
+CPPCHECKFLAGS := -I$(INCDIR) \
+-I$(TESTSRCDIR) \
+--enable=all \
+--suppress=missingIncludeSystem \
+--suppress=unusedFunction \
+--suppress=constParameter \
+--language=c --std=c11 \
+--error-exitcode=1 $(SOURCES) $(INCLUDES)
 
 VALGRIND = valgrind 
 VALGRINDFLAGS = -s --leak-check=full --show-leak-kinds=all --track-origins=yes

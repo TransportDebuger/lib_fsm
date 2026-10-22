@@ -75,3 +75,4 @@ coverage/
 # Binary output directories
 bin/
 dist/
+obj_cov/
